@@ -152,7 +152,7 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09
 }
 
 // Application Insights for monitoring
-resource applicationInsightsWorkspaceConfig 'Microsoft.Insights/components@2020-02-02' = {
+resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: 'ai-dimlops-${environment}-${take(uniqueString(resourceGroup().id), 6)}'
   location: location
   tags: tags
