@@ -30,7 +30,6 @@ get_service_key() {
     local service_name=$1
     local resource_group=$2
     
-    echo "Getting access key for $service_name..."
     az cognitiveservices account keys list --name "$service_name" --resource-group "$resource_group" --query "key1" -o tsv
 }
 
@@ -39,7 +38,6 @@ get_service_endpoint() {
     local service_name=$1
     local resource_group=$2
     
-    echo "Getting endpoint for $service_name..."
     az cognitiveservices account show --name "$service_name" --resource-group "$resource_group" --query "properties.endpoint" -o tsv
 }
 
