@@ -11,8 +11,8 @@ MODEL_NAME=$3
 SOURCE_RESOURCE_GROUP=$4
 TARGET_RESOURCE_GROUP=$5
 
-if [ $# -ne 4 ]; then
-    echo "Usage: $0 <source_service> <target_service> <model_name> <target_resource_group>"
+if [ $# -ne 5 ]; then
+    echo "Usage: $0 <source_service> <target_service> <model_name> <source_resource_group> <target_resource_group>"
     exit 1
 fi
 
@@ -20,6 +20,7 @@ echo "Starting model copy operation..."
 echo "Source Service: $SOURCE_SERVICE"
 echo "Target Service: $TARGET_SERVICE"
 echo "Model Name: $MODEL_NAME"
+echo "Source Resource Group: $SOURCE_RESOURCE_GROUP"
 echo "Target Resource Group: $TARGET_RESOURCE_GROUP"
 
 # Function to check if a service exists
@@ -42,7 +43,6 @@ get_service_key() {
     local service_name=$1
     local resource_group=$2
     
-    echo "Getting access key for $service_name..."
     az cognitiveservices account keys list --name "$service_name" --resource-group "$resource_group" --query "key1" -o tsv
 }
 
@@ -51,7 +51,6 @@ get_service_endpoint() {
     local service_name=$1
     local resource_group=$2
     
-    echo "Getting endpoint for $service_name..."
     az cognitiveservices account show --name "$service_name" --resource-group "$resource_group" --query "properties.endpoint" -o tsv
 }
 
