@@ -17,7 +17,7 @@ variables:
   - name: azureServiceConnection
     value: 'azure-service-connection' # Update with your service connection name
   - name: modelName
-    value: 'document-intelligence-model'
+    value: 'SampleInvoices-1.0'
   - name: modelVersion
     value: '$(Build.BuildNumber)'
   
