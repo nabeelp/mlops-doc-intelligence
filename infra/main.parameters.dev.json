@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "value": "dev"
+    },
+    "location": {
+      "value": "South Africa North"
+    },
+    "cognitiveServicePrefix": {
+      "value": "doc-intelligence"
+    },
+    "tags": {
+      "value": {
+        "Environment": "dev",
+        "Project": "DocumentIntelligenceMLOps",
+        "ManagedBy": "Bicep",
+        "Owner": "MLOps Team"
+      }
+    }
+  }
+}

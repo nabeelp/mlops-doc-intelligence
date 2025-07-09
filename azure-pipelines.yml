@@ -1,0 +1,193 @@
+# Azure DevOps Pipeline for Document Intelligence Model Promotion
+# This pipeline promotes Azure Document Intelligence models from Dev -> QA -> Prod environments
+
+trigger:
+  branches:
+    include:
+    - main
+    - develop
+  paths:
+    include:
+    - models/*
+    - scripts/*
+    - azure-pipelines.yml
+
+variables:
+  # Global variables
+  - name: azureServiceConnection
+    value: 'azure-service-connection' # Update with your service connection name
+  - name: modelName
+    value: 'document-intelligence-model'
+  - name: modelVersion
+    value: '$(Build.BuildNumber)'
+  
+  # Environment-specific variable groups
+  - group: 'doc-intelligence-dev'
+  - group: 'doc-intelligence-qa' 
+  - group: 'doc-intelligence-prod'
+
+stages:
+- stage: ModelValidation
+  displayName: 'Model Validation and Testing'
+  jobs:
+  - job: ValidateModel
+    displayName: 'Validate Model Configuration'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+
+    - task: AzureCLI@2
+      displayName: 'Install Azure CLI Extensions'
+      inputs:
+        azureSubscription: '$(azureServiceConnection)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az extension add --name cognitiveservices
+          az --version
+
+    - task: AzurePowerShell@5
+      displayName: 'Validate Model Configuration'
+      inputs:
+        azureSubscription: '$(azureServiceConnection)'
+        ScriptType: 'FilePath'
+        ScriptPath: '$(System.DefaultWorkingDirectory)/scripts/validate-model.ps1'
+        ScriptArguments: '-ModelName "$(modelName)" -Environment "dev"'
+        azurePowerShellVersion: 'LatestVersion'
+
+    - task: PublishTestResults@2
+      displayName: 'Publish Validation Results'
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: '**/validation-results.xml'
+        failTaskOnFailedTests: true
+
+- stage: PromoteToQA
+  displayName: 'Promote to QA Environment'
+  dependsOn: ModelValidation
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+  jobs:
+  - deployment: DeployToQA
+    displayName: 'Deploy Model to QA'
+    pool:
+      vmImage: 'ubuntu-latest'
+    environment: 'QA'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+
+          - task: AzureCLI@2
+            displayName: 'Copy Model to QA Environment'
+            inputs:
+              azureSubscription: '$(azureServiceConnection)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                # Copy model from dev to QA environment
+                ./scripts/copy-model.sh $(DEV_COGNITIVE_SERVICE_NAME) $(QA_COGNITIVE_SERVICE_NAME) $(modelName) $(QA_RESOURCE_GROUP)
+
+          - task: AzurePowerShell@5
+            displayName: 'Test Model in QA'
+            inputs:
+              azureSubscription: '$(azureServiceConnection)'
+              ScriptType: 'FilePath'
+              ScriptPath: '$(Pipeline.Workspace)/s/scripts/test-model.ps1'
+              ScriptArguments: '-CognitiveServiceName "$(QA_COGNITIVE_SERVICE_NAME)" -ModelName "$(modelName)" -Environment "qa" -ResourceGroup "$(QA_RESOURCE_GROUP)"'
+              azurePowerShellVersion: 'LatestVersion'
+
+          - task: PublishTestResults@2
+            displayName: 'Publish QA Test Results'
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/qa-test-results.xml'
+              failTaskOnFailedTests: true
+
+- stage: PromoteToProd
+  displayName: 'Promote to Production Environment'
+  dependsOn: PromoteToQA
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: DeployToProd
+    displayName: 'Deploy Model to Production'
+    pool:
+      vmImage: 'ubuntu-latest'
+    environment: 'Production'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+
+          - task: AzureCLI@2
+            displayName: 'Backup Current Production Model'
+            inputs:
+              azureSubscription: '$(azureServiceConnection)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                # Backup current production model
+                ./scripts/backup-model.sh $(PROD_COGNITIVE_SERVICE_NAME) $(modelName) $(PROD_RESOURCE_GROUP)
+
+          - task: AzureCLI@2
+            displayName: 'Copy Model to Production'
+            inputs:
+              azureSubscription: '$(azureServiceConnection)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                # Copy model from QA to Production environment
+                ./scripts/copy-model.sh $(QA_COGNITIVE_SERVICE_NAME) $(PROD_COGNITIVE_SERVICE_NAME) $(modelName) $(PROD_RESOURCE_GROUP)
+
+          - task: AzurePowerShell@5
+            displayName: 'Smoke Test Production Model'
+            inputs:
+              azureSubscription: '$(azureServiceConnection)'
+              ScriptType: 'FilePath'
+              ScriptPath: '$(Pipeline.Workspace)/s/scripts/test-model.ps1'
+              ScriptArguments: '-CognitiveServiceName "$(PROD_COGNITIVE_SERVICE_NAME)" -ModelName "$(modelName)" -Environment "prod" -ResourceGroup "$(PROD_RESOURCE_GROUP)" -SmokeTestOnly'
+              azurePowerShellVersion: 'LatestVersion'
+
+          - task: PublishTestResults@2
+            displayName: 'Publish Production Test Results'
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/prod-test-results.xml'
+              failTaskOnFailedTests: true
+
+- stage: PostDeployment
+  displayName: 'Post-Deployment Activities'
+  dependsOn: PromoteToProd
+  condition: succeeded()
+  jobs:
+  - job: PostDeploymentTasks
+    displayName: 'Post-Deployment Tasks'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: AzurePowerShell@5
+      displayName: 'Update Model Registry'
+      inputs:
+        azureSubscription: '$(azureServiceConnection)'
+        ScriptType: 'FilePath'
+        ScriptPath: '$(System.DefaultWorkingDirectory)/scripts/update-model-registry.ps1'
+        ScriptArguments: '-ModelName "$(modelName)" -Version "$(modelVersion)" -Environment "prod"'
+        azurePowerShellVersion: 'LatestVersion'
+
+    - task: InvokeRESTAPI@1
+      displayName: 'Send Deployment Notification'
+      inputs:
+        connectionType: 'connectedServiceName'
+        serviceConnection: 'teams-webhook' # Configure Teams webhook service connection
+        method: 'POST'
+        headers: |
+          Content-Type: application/json
+        body: |
+          {
+            "text": "Document Intelligence model $(modelName) version $(modelVersion) has been successfully deployed to production."
+          }
