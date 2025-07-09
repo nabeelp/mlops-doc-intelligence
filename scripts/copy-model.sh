@@ -1,14 +1,15 @@
 #!/bin/bash
 
 # Azure Document Intelligence Model Copy Script
-# Usage: ./copy-model.sh <source_service> <target_service> <model_name> <target_resource_group>
+# Usage: ./copy-model.sh <source_service> <target_service> <model_name> <source_resource_group> <target_resource_group>
 
 set -e
 
 SOURCE_SERVICE=$1
 TARGET_SERVICE=$2
 MODEL_NAME=$3
-TARGET_RESOURCE_GROUP=$4
+SOURCE_RESOURCE_GROUP=$4
+TARGET_RESOURCE_GROUP=$5
 
 if [ $# -ne 4 ]; then
     echo "Usage: $0 <source_service> <target_service> <model_name> <target_resource_group>"
@@ -131,10 +132,6 @@ if ! az account show >/dev/null 2>&1; then
 fi
 
 echo "✓ Azure CLI authenticated"
-
-# Note: For simplicity, we're assuming both services are in the same resource group
-# In a real scenario, you might need different resource groups
-SOURCE_RESOURCE_GROUP=$TARGET_RESOURCE_GROUP
 
 # Check if source service exists
 if ! check_service_exists "$SOURCE_SERVICE" "$SOURCE_RESOURCE_GROUP"; then
