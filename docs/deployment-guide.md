@@ -88,37 +88,25 @@ PROD_SUBSCRIPTION_ID: [your subscription id]
 
 ### Step 6: Configure Service Principal Permissions
 
-Grant the service principal the following permissions on each environment:
+Grant the service principal (from the service connection created in Step 3) the following permissions on each environment by running the configuration script:
 
 ```powershell
-# Get the service principal object ID from the service connection
-$servicePrincipalId = "your-service-principal-object-id"
+# Navigate to the scripts directory
+cd scripts
 
-# Assign roles for each environment
-$environments = @("dev", "qa", "prod")
-
-foreach ($env in $environments) {
-    $resourceGroupName = "rg-dimlops-$env"
-    
-    # Cognitive Services Contributor
-    az role assignment create `
-        --assignee $servicePrincipalId `
-        --role "Cognitive Services Contributor" `
-        --scope "/subscriptions/your-subscription-id/resourceGroups/$resourceGroupName"
-    
-    # Storage Blob Data Contributor
-    az role assignment create `
-        --assignee $servicePrincipalId `
-        --role "Storage Blob Data Contributor" `
-        --scope "/subscriptions/your-subscription-id/resourceGroups/$resourceGroupName"
-    
-    # Key Vault Secrets User
-    az role assignment create `
-        --assignee $servicePrincipalId `
-        --role "Key Vault Secrets User" `
-        --scope "/subscriptions/your-subscription-id/resourceGroups/$resourceGroupName"
-}
+# Run the service principal configuration script
+# Use the Object ID of the service principal associated with your 'azure-service-connection'
+./configure-service-principal.ps1 `
+    -ServicePrincipalId "service-principal-object-id-from-step-3" `
+    -SubscriptionId "your-subscription-id"
 ```
+
+> **Note**: To find the service principal Object ID, go to **Project Settings** > **Service connections** > **azure-service-connection** > **Manage App Registration** > Click on the link in the Essentials section, after the "Managed application in local directory" label, and copy the Object ID of the associated Enterprise Application.
+
+This script will automatically assign the following roles to the service principal for all environments (dev, qa, prod):
+- **Cognitive Services Contributor** - For managing Document Intelligence models
+- **Storage Blob Data Contributor** - For accessing training data and artifacts
+- **Key Vault Secrets User** - For accessing secrets and configuration
 
 ## Model Preparation
 
