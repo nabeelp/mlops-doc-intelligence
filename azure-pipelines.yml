@@ -27,43 +27,6 @@ variables:
   - group: 'doc-intelligence-prod'
 
 stages:
-- stage: ModelValidation
-  displayName: 'Model Validation and Testing'
-  jobs:
-  - job: ValidateModel
-    displayName: 'Validate Model Configuration'
-    pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-    - checkout: self
-
-    - task: AzureCLI@2
-      displayName: 'Install Azure CLI Extensions'
-      inputs:
-        azureSubscription: '$(azureServiceConnection)'
-        scriptType: 'bash'
-        scriptLocation: 'inlineScript'
-        inlineScript: |
-          az extension add --name cognitiveservices
-          az --version
-
-    - task: AzurePowerShell@5
-      displayName: 'Validate Model Configuration'
-      inputs:
-        azureSubscription: '$(azureServiceConnection)'
-        ScriptType: 'FilePath'
-        ScriptPath: '$(System.DefaultWorkingDirectory)/scripts/validate-model.ps1'
-        ScriptArguments: '-ModelName "$(modelName)" -Environment "dev"'
-        azurePowerShellVersion: 'LatestVersion'
-
-    - task: PublishTestResults@2
-      displayName: 'Publish Validation Results'
-      condition: succeededOrFailed()
-      inputs:
-        testResultsFormat: 'JUnit'
-        testResultsFiles: '**/validation-results.xml'
-        failTaskOnFailedTests: true
-
 - stage: PromoteToQA
   displayName: 'Promote to QA Environment'
   dependsOn: ModelValidation
