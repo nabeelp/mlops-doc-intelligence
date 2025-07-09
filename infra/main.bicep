@@ -29,7 +29,7 @@ resource cognitiveService 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
   tags: tags
   kind: 'FormRecognizer'
   sku: {
-    name: environment == 'prod' ? 'S0' : 'F0' // Free tier for dev/qa, Standard for prod
+    name: 'S0'
   }
   properties: {
     customSubDomainName: cognitiveServiceName
