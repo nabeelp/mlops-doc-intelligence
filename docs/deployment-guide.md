@@ -112,29 +112,8 @@ This script will automatically assign the following roles to the service princip
 
 ### Step 7: Prepare Your Model
 
-1. Create a model directory under `models/your-model-name/`
-2. Add a `config.json` file with your model configuration:
-
-```json
-{
-  "modelType": "document-intelligence-custom",
-  "version": "1.0.0",
-  "description": "Your model description",
-  "accuracy": 0.92,
-  "trainingData": {
-    "datasetName": "your-dataset",
-    "documentCount": 150
-  },
-  "fields": [
-    {
-      "name": "FieldName",
-      "type": "string",
-      "confidence": 0.95
-    }
-  ]
-}
-```
-
+1. Create a model directory under `models/your-model-name/` or use the existing `models/sample-model/` directory.
+2. Add a `config.json` file with your model configuration, or use the existing `models/sample-model/config.json` file.:
 3. Update the `modelName` variable in `azure-pipelines.yml`
 
 ### Step 8: Add Test Data
