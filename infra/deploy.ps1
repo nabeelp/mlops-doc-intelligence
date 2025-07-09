@@ -28,7 +28,6 @@ try {
     az group create --name $ResourceGroupName --location $Location
     
     # Validate the Bicep template
-    Write-Host "@main.parameters.$Environment.json"
     Write-Host "Validating Bicep template..." -ForegroundColor Yellow
     $validationResult = az deployment group validate `
         --resource-group $ResourceGroupName `

@@ -132,21 +132,6 @@ resource storageConnectionString 'Microsoft.KeyVault/vaults/secrets@2023-07-01' 
   }
 }
 
-// Application Insights for monitoring
-resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: 'ai-dimlops-${environment}-${take(uniqueString(resourceGroup().id), 6)}'
-  location: location
-  tags: tags
-  kind: 'web'
-  properties: {
-    Application_Type: 'web'
-    Request_Source: 'rest'
-    RetentionInDays: environment == 'prod' ? 90 : 30
-    DisableIpMasking: false
-    DisableLocalAuth: false
-  }
-}
-
 // Log Analytics Workspace for Application Insights
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: 'law-dimlops-${environment}-${take(uniqueString(resourceGroup().id), 6)}'
@@ -166,9 +151,9 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09
   }
 }
 
-// Link Application Insights to Log Analytics
+// Application Insights for monitoring
 resource applicationInsightsWorkspaceConfig 'Microsoft.Insights/components@2020-02-02' = {
-  name: applicationInsights.name
+  name: 'ai-dimlops-${environment}-${take(uniqueString(resourceGroup().id), 6)}'
   location: location
   tags: tags
   kind: 'web'
@@ -177,9 +162,6 @@ resource applicationInsightsWorkspaceConfig 'Microsoft.Insights/components@2020-
     WorkspaceResourceId: logAnalyticsWorkspace.id
     RetentionInDays: environment == 'prod' ? 90 : 30
   }
-  dependsOn: [
-    applicationInsights
-  ]
 }
 
 // Outputs
