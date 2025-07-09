@@ -67,7 +67,7 @@ copy_model() {
     # First, get the model from source
     echo "Retrieving model from source service..."
     source_model_response=$(curl -s -X GET \
-        "$source_endpoint/formrecognizer/documentModels/$model_name" \
+        "$source_endpoint/documentintelligence/documentModels/$model_name?api-version=2024-11-30" \
         -H "Ocp-Apim-Subscription-Key: $source_key" \
         -H "Content-Type: application/json")
     
@@ -101,7 +101,7 @@ EOF
     
     # Submit model creation request
     create_response=$(curl -s -X POST \
-        "$target_endpoint/formrecognizer/documentModels:build" \
+        "$target_endpoint/documentintelligence/documentModels:build?api-version=2024-11-30" \
         -H "Ocp-Apim-Subscription-Key: $target_key" \
         -H "Content-Type: application/json" \
         -d "$request_body")

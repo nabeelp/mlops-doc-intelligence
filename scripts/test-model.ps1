@@ -50,7 +50,7 @@ try {
             'Content-Type' = 'application/json'
         }
         
-        $modelUri = "$endpoint/formrecognizer/documentModels/$ModelName"
+        $modelUri = "$endpoint/documentintelligence/documentModels/$ModelName?api-version=2024-11-30"
         $response = Invoke-RestMethod -Uri $modelUri -Method GET -Headers $headers
         
         if ($response -and $response.modelId -eq $ModelName) {
@@ -88,7 +88,7 @@ try {
     Write-Host "Testing model status..." -ForegroundColor Yellow
     
     try {
-        $statusUri = "$endpoint/formrecognizer/documentModels/$ModelName"
+        $statusUri = "$endpoint/documentintelligence/documentModels/$ModelName?api-version=2024-11-30"
         $statusResponse = Invoke-RestMethod -Uri $statusUri -Method GET -Headers $headers
         
         if ($statusResponse.status -eq "ready") {
@@ -126,7 +126,7 @@ try {
     Write-Host "Testing service health..." -ForegroundColor Yellow
     
     try {
-        $healthUri = "$endpoint/formrecognizer/documentModels"
+        $healthUri = "$endpoint/documentintelligence/documentModels?api-version=2024-11-30"
         $healthResponse = Invoke-RestMethod -Uri $healthUri -Method GET -Headers $headers
         
         if ($healthResponse) {
@@ -174,7 +174,7 @@ try {
                 $testDocBase64 = [System.Convert]::ToBase64String($testDocBytes)
                 
                 # Prepare request
-                $analyzeUri = "$endpoint/formrecognizer/documentModels/$ModelName`:analyze"
+                $analyzeUri = "$endpoint/documentintelligence/documentModels/$ModelName`:analyze?api-version=2024-11-30"
                 $analyzeBody = @{
                     base64Source = $testDocBase64
                 } | ConvertTo-Json
