@@ -53,7 +53,7 @@ backup_model() {
     # Get model information
     echo "Retrieving model information..."
     model_info=$(curl -s -X GET \
-        "$endpoint/formrecognizer/documentModels/$model_name" \
+        "$endpoint/documentintelligence/documentModels/$model_name?api-version=2024-11-30" \
         -H "Ocp-Apim-Subscription-Key: $key" \
         -H "Content-Type: application/json")
     
@@ -61,29 +61,20 @@ backup_model() {
         echo "✗ Failed to retrieve model information"
         exit 1
     fi
+
+    # Check if the mode_info contains an error
+    if [[ "$model_info" == *"error"* ]]; then
+        echo "✗ Model not found or an error occurred: $model_info"
+        exit 1
+    fi
     
-    # Save model information to backup directory
-    echo "$model_info" | jq '.' > "$backup_dir/${model_name}_model_info.json"
-    
+    # Save model information to backup directory (no jq formatting)
+    echo "$model_info" > "$backup_dir/${model_name}_model_info.json"
     if [ $? -eq 0 ]; then
         echo "✓ Model information backed up to $backup_dir/${model_name}_model_info.json"
     else
         echo "✗ Failed to save model information"
         exit 1
-    fi
-    
-    # Get model schema if available
-    echo "Retrieving model schema..."
-    model_schema=$(curl -s -X GET \
-        "$endpoint/formrecognizer/documentModels/$model_name/schema" \
-        -H "Ocp-Apim-Subscription-Key: $key" \
-        -H "Content-Type: application/json")
-    
-    if [ $? -eq 0 ] && [ "$model_schema" != "null" ]; then
-        echo "$model_schema" | jq '.' > "$backup_dir/${model_name}_schema.json"
-        echo "✓ Model schema backed up to $backup_dir/${model_name}_schema.json"
-    else
-        echo "⚠ Model schema not available or failed to retrieve"
     fi
     
     # Create backup metadata
@@ -95,14 +86,12 @@ backup_model() {
     "modelName": "$model_name",
     "backupLocation": "$backup_dir",
     "backupFiles": [
-        "${model_name}_model_info.json",
-        "${model_name}_schema.json"
+        "${model_name}_model_info.json"
     ]
 }
 EOF
 )
-    
-    echo "$backup_metadata" | jq '.' > "$backup_dir/backup_metadata.json"
+    echo "$backup_metadata" > "$backup_dir/backup_metadata.json"
     echo "✓ Backup metadata saved to $backup_dir/backup_metadata.json"
 }
 

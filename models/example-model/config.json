@@ -1,43 +1,33 @@
 {
-  "modelType": "document-intelligence-custom",
-  "version": "1.0.0",
-  "description": "Custom document intelligence model for processing business documents",
-  "trainingData": {
-    "datasetName": "business-documents-v1",
-    "documentCount": 150,
-    "trainingDate": "2025-01-01T00:00:00Z"
-  },
-  "accuracy": 0.92,
-  "fields": [
-    {
-      "name": "InvoiceNumber",
-      "type": "string",
-      "confidence": 0.95
-    },
-    {
-      "name": "InvoiceDate",
-      "type": "date",
-      "confidence": 0.88
-    },
-    {
-      "name": "TotalAmount",
-      "type": "number",
-      "confidence": 0.93
-    },
-    {
-      "name": "VendorName",
-      "type": "string",
-      "confidence": 0.90
+  "docTypes": {
+    "SampleInvoices-1.0": {
+      "fieldSchema": {
+        "InvoiceNumber": {
+          "type": "string"
+        },
+        "InvoiceDate": {
+          "type": "string"
+        },
+        "TotalAmount": {
+          "type": "string"
+        },
+        "VendorName": {
+          "type": "string"
+        }
+      },
+      "buildMode": "template",
+      "fieldConfidence": {
+        "InvoiceDate": 0.995,
+        "InvoiceNumber": 0.995,
+        "TotalAmount": 0.995,
+        "VendorName": 0.8
+      }
     }
-  ],
-  "performance": {
-    "precision": 0.91,
-    "recall": 0.89,
-    "f1Score": 0.90
   },
-  "requirements": {
-    "minConfidenceThreshold": 0.85,
-    "supportedFormats": ["pdf", "jpg", "png", "tiff"],
-    "maxFileSize": "50MB"
-  }
+  "modelId": "SampleInvoices-1.0",
+  "createdDateTime": "2025-07-09T12:14:15Z",
+  "modifiedDateTime": "2025-07-09T12:14:15Z",
+  "expirationDateTime": "2027-07-09T12:14:15Z",
+  "apiVersion": "2024-11-30",
+  "description": "Template model to extract invoice data"
 }
