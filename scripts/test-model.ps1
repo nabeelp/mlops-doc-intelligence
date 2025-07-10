@@ -26,18 +26,21 @@ try {
     $testsPassed = 0
     $testsFailed = 0
     
-    # Get service information
+    # Get service information using Azure CLI
     Write-Host "Getting service information for $CognitiveServiceName..." -ForegroundColor Yellow
-    
-    $service = Get-AzCognitiveServicesAccount -ResourceGroupName $ResourceGroup -Name $CognitiveServiceName
-    if (-not $service) {
+
+    $serviceJson = az cognitiveservices account show --name $CognitiveServiceName --resource-group $ResourceGroup --query "{Endpoint:properties.endpoint}" -o json 2>$null
+    if (-not $serviceJson) {
         throw "Cognitive Services account $CognitiveServiceName not found in resource group $ResourceGroup"
     }
-    
+    $service = $serviceJson | ConvertFrom-Json
     $endpoint = $service.Endpoint
-    $keys = Get-AzCognitiveServicesAccountKey -ResourceGroupName $ResourceGroup -Name $CognitiveServiceName
-    $key = $keys.Key1
-    
+
+    $key = az cognitiveservices account keys list --name $CognitiveServiceName --resource-group $ResourceGroup --query "key1" -o tsv 2>$null
+    if (-not $key) {
+        throw "Failed to retrieve key for $CognitiveServiceName in $ResourceGroup"
+    }
+
     Write-Host "✓ Service information retrieved" -ForegroundColor Green
     Write-Host "Endpoint: $endpoint" -ForegroundColor Gray
     
