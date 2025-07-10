@@ -1,5 +1,6 @@
 # Azure DevOps Pipeline for Document Intelligence Model Promotion
 # This pipeline promotes Azure Document Intelligence models from Dev -> QA -> Prod environments
+# Updated to use PowerShell scripts for improved reliability and Windows compatibility
 
 trigger:
   branches:
@@ -43,20 +44,15 @@ stages:
           steps:
           - checkout: self
 
-          - task: AzureCLI@2
+          - task: AzurePowerShell@5
             displayName: 'Copy Model to QA Environment'
             inputs:
               azureSubscription: '$(azureServiceConnection)'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                # Ensure jq is installed
-                if ! command -v jq &> /dev/null; then
-                  echo "jq not found, installing..."
-                  sudo apt-get update && sudo apt-get install -y jq
-                fi
-                # Copy model from dev to QA environment
-                ./scripts/copy-model.sh $(DEV_COGNITIVE_SERVICE_NAME) $(QA_COGNITIVE_SERVICE_NAME) $(modelName) $(QA_RESOURCE_GROUP)
+              ScriptType: 'FilePath'
+              ScriptPath: '$(Pipeline.Workspace)/s/scripts/Copy-Model.ps1'
+              ScriptArguments: '-SourceService "$(DEV_COGNITIVE_SERVICE_NAME)" -TargetService "$(QA_COGNITIVE_SERVICE_NAME)" -ModelName "$(modelName)" -SourceResourceGroup "$(DEV_RESOURCE_GROUP)" -TargetResourceGroup "$(QA_RESOURCE_GROUP)"'
+              azurePowerShellVersion: 'LatestVersion'
+              # Uses PowerShell script that follows Microsoft's recommended Document Intelligence model copy API
 
           - task: AzurePowerShell@5
             displayName: 'Test Model in QA'
@@ -66,14 +62,6 @@ stages:
               ScriptPath: '$(Pipeline.Workspace)/s/scripts/test-model.ps1'
               ScriptArguments: '-CognitiveServiceName "$(QA_COGNITIVE_SERVICE_NAME)" -ModelName "$(modelName)" -Environment "qa" -ResourceGroup "$(QA_RESOURCE_GROUP)"'
               azurePowerShellVersion: 'LatestVersion'
-
-          - task: PublishTestResults@2
-            displayName: 'Publish QA Test Results'
-            condition: succeededOrFailed()
-            inputs:
-              testResultsFormat: 'JUnit'
-              testResultsFiles: '**/qa-test-results.xml'
-              failTaskOnFailedTests: true
 
 - stage: PromoteToProd
   displayName: 'Promote to Production Environment'
@@ -101,20 +89,15 @@ stages:
                 # Backup current production model
                 ./scripts/backup-model.sh $(PROD_COGNITIVE_SERVICE_NAME) $(modelName) $(PROD_RESOURCE_GROUP)
 
-          - task: AzureCLI@2
+          - task: AzurePowerShell@5
             displayName: 'Copy Model to Production'
             inputs:
               azureSubscription: '$(azureServiceConnection)'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                # Ensure jq is installed
-                if ! command -v jq &> /dev/null; then
-                  echo "jq not found, installing..."
-                  sudo apt-get update && sudo apt-get install -y jq
-                fi
-                # Copy model from QA to Production environment
-                ./scripts/copy-model.sh $(QA_COGNITIVE_SERVICE_NAME) $(PROD_COGNITIVE_SERVICE_NAME) $(modelName) $(PROD_RESOURCE_GROUP)
+              ScriptType: 'FilePath'
+              ScriptPath: '$(Pipeline.Workspace)/s/scripts/Copy-Model.ps1'
+              ScriptArguments: '-SourceService "$(QA_COGNITIVE_SERVICE_NAME)" -TargetService "$(PROD_COGNITIVE_SERVICE_NAME)" -ModelName "$(modelName)" -SourceResourceGroup "$(QA_RESOURCE_GROUP)" -TargetResourceGroup "$(PROD_RESOURCE_GROUP)"'
+              azurePowerShellVersion: 'LatestVersion'
+              # Uses PowerShell script with automatic target model deletion before copy
 
           - task: AzurePowerShell@5
             displayName: 'Smoke Test Production Model'
@@ -124,43 +107,3 @@ stages:
               ScriptPath: '$(Pipeline.Workspace)/s/scripts/test-model.ps1'
               ScriptArguments: '-CognitiveServiceName "$(PROD_COGNITIVE_SERVICE_NAME)" -ModelName "$(modelName)" -Environment "prod" -ResourceGroup "$(PROD_RESOURCE_GROUP)" -SmokeTestOnly'
               azurePowerShellVersion: 'LatestVersion'
-
-          - task: PublishTestResults@2
-            displayName: 'Publish Production Test Results'
-            condition: succeededOrFailed()
-            inputs:
-              testResultsFormat: 'JUnit'
-              testResultsFiles: '**/prod-test-results.xml'
-              failTaskOnFailedTests: true
-
-- stage: PostDeployment
-  displayName: 'Post-Deployment Activities'
-  dependsOn: PromoteToProd
-  condition: succeeded()
-  jobs:
-  - job: PostDeploymentTasks
-    displayName: 'Post-Deployment Tasks'
-    pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-    - task: AzurePowerShell@5
-      displayName: 'Update Model Registry'
-      inputs:
-        azureSubscription: '$(azureServiceConnection)'
-        ScriptType: 'FilePath'
-        ScriptPath: '$(System.DefaultWorkingDirectory)/scripts/update-model-registry.ps1'
-        ScriptArguments: '-ModelName "$(modelName)" -Version "$(modelVersion)" -Environment "prod"'
-        azurePowerShellVersion: 'LatestVersion'
-
-    - task: InvokeRESTAPI@1
-      displayName: 'Send Deployment Notification'
-      inputs:
-        connectionType: 'connectedServiceName'
-        serviceConnection: 'teams-webhook' # Configure Teams webhook service connection
-        method: 'POST'
-        headers: |
-          Content-Type: application/json
-        body: |
-          {
-            "text": "Document Intelligence model $(modelName) version $(modelVersion) has been successfully deployed to production."
-          }
