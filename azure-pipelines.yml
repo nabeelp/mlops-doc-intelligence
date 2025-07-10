@@ -30,8 +30,6 @@ variables:
 stages:
 - stage: PromoteToQA
   displayName: 'Promote to QA Environment'
-  dependsOn: ModelValidation
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
   jobs:
   - deployment: DeployToQA
     displayName: 'Deploy Model to QA'

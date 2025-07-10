@@ -18,9 +18,15 @@ Dev Environment → QA Environment → Production Environment
      ↓                 ↓                    ↓
 PowerShell Copy → Integration Tests → Backup + Deploy
      ↓                 ↓                    ↓
-Branch: develop   Automated Testing    Branch: main
-                                      Manual Approval
+main/develop      Manual Approval      main branch only
+branches          (QA Environment)     (Production Environment)
 ```
+
+**Pipeline Flow:**
+- QA deployment runs on both `main` and `develop` branches
+- Production deployment only runs on `main` branch after QA success
+- Both stages require environment approvals in Azure DevOps
+- Uses ubuntu-latest VM image for all deployments
 
 **Infrastructure Components:**
 - Azure Document Intelligence services (Dev, QA, Prod)
@@ -59,8 +65,9 @@ Branch: develop   Automated Testing    Branch: main
    - Update the `modelName` variable in `azure-pipelines.yml`
 
 4. **Run the pipeline**
-   - Push changes to trigger the pipeline
-   - Monitor execution in Azure DevOps
+   - Push changes to `main` or `develop` branches to trigger QA deployment
+   - Push changes to `main` branch for full pipeline execution (QA → Production)
+   - Monitor execution in Azure DevOps with manual environment approvals
 
 ## Directory Structure
 
@@ -90,22 +97,27 @@ mlops-doc-intelligence/
 ## Pipeline Stages
 
 ### 1. Promote to QA Environment
-- **Trigger**: Commits to `develop` branch
+- **Trigger**: Commits to `main` or `develop` branches with changes to models/, scripts/, or azure-pipelines.yml
+- **Environment**: QA environment in Azure DevOps (requires manual approval)
+- **Pool**: ubuntu-latest VM
 - **Actions**:
   - Uses PowerShell `Copy-Model.ps1` script for reliable model copying
   - Follows Microsoft's recommended Document Intelligence model copy API
-  - Automatically deletes existing target model before copying (configurable)
+  - Copies from Dev to QA environment using service variables
   - Runs comprehensive integration tests using `test-model.ps1`
-  - Generates detailed test reports
+  - No branch-specific conditions (runs on both main and develop)
 
 ### 2. Promote to Production Environment  
-- **Trigger**: Commits to `main` branch, after successful QA promotion
+- **Trigger**: Only on `main` branch commits, after successful QA promotion
+- **Environment**: Production environment in Azure DevOps (requires manual approval)
+- **Pool**: ubuntu-latest VM
+- **Condition**: `and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))`
 - **Actions**:
   - Creates timestamped backup of current production model using `backup-model.sh`
   - Stores backup metadata and model information in `scripts/backups/`
   - Copies model from QA to Production using PowerShell script
-  - Runs smoke tests to validate deployment
-  - Requires manual approval via Azure DevOps environments
+  - Runs smoke tests with `-SmokeTestOnly` parameter to validate deployment
+  - Sequential execution with dependency on QA stage success
 
 ### 3. Infrastructure Management
 - **Bicep Templates**: Complete infrastructure as code for all environments
@@ -176,6 +188,26 @@ Each model requires a `config.json` file with Document Intelligence model schema
 }
 ```
 
+### Pipeline Configuration
+Key pipeline variables and settings:
+
+```yaml
+# Global Variables
+azureServiceConnection: 'azure-service-connection'  # Update with your service connection
+modelName: 'SampleInvoices-1.0'                    # Current model being deployed
+modelVersion: '$(Build.BuildNumber)'               # Auto-generated version
+
+# Trigger Configuration
+trigger:
+  branches: [main, develop]                         # Triggers on both branches
+  paths: [models/*, scripts/*, azure-pipelines.yml] # Only on specific file changes
+
+# Environment Configuration
+environments:
+  - QA: Manual approval required
+  - Production: Manual approval required, main branch only
+```
+
 ### Environment Variables
 Configure the following variable groups in Azure DevOps:
 
@@ -190,9 +222,16 @@ See [Variable Groups Configuration](docs/variable-groups.md) for detailed setup 
 The pipeline includes comprehensive testing using PowerShell scripts:
 
 - **Model Copy Validation**: Verifies successful model transfer between environments
-- **Integration Tests**: End-to-end model functionality testing using `test-model.ps1`
-- **Smoke Tests**: Basic connectivity and availability checks in production
+- **Integration Tests**: Full model functionality testing using `test-model.ps1` in QA
+- **Smoke Tests**: Basic connectivity and availability checks in production using `-SmokeTestOnly` parameter
 - **Service Validation**: Confirms Azure Document Intelligence service accessibility
+- **Environment Isolation**: Tests run in environment-specific contexts with proper variable isolation
+
+### Test Execution Details
+- **QA Testing**: Comprehensive integration tests with full model validation
+- **Production Testing**: Lightweight smoke tests to minimize production impact
+- **Test Parameters**: Environment-specific parameters passed to test scripts
+- **VM Image**: All tests run on ubuntu-latest for consistency
 
 Test results are published in standard formats for Azure DevOps integration.
 
@@ -267,13 +306,21 @@ scripts/backups/20250709_170010/
    - Verify subscription quotas and service availability in target region
    - Review deploy.ps1 execution logs
 
-4. **Test Failures**
+4. **Pipeline Configuration Issues**
+   - Verify trigger branch configuration (main/develop)
+   - Check path filters are correctly matching changed files
+   - Ensure environment approvals are properly configured
+   - Validate variable group assignments to pipeline stages
+   - Check condition logic for production deployment (main branch only)
+
+5. **Test Failures**
    - Verify test document availability in `test-data` folder
    - Check model confidence thresholds in config.json
    - Validate service endpoints and authentication keys
    - Review test-model.ps1 output for specific failure details
+   - Ensure -SmokeTestOnly parameter works correctly in production
 
-5. **Backup Issues**
+6. **Backup Issues**
    - Ensure sufficient storage space in backup directory
    - Check bash script execution permissions on Linux agents
    - Verify source model exists before backup attempt
