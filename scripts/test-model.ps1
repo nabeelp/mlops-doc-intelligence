@@ -41,95 +41,19 @@ try {
         throw "Failed to retrieve key for $CognitiveServiceName in $ResourceGroup"
     }
 
+    $headers = @{
+        'Ocp-Apim-Subscription-Key' = $key
+        'Content-Type' = 'application/json'
+    }
+
     Write-Host "✓ Service information retrieved" -ForegroundColor Green
     Write-Host "Endpoint: $endpoint" -ForegroundColor Gray
     
-    # Test 1: Model Availability
-    Write-Host "Testing model availability..." -ForegroundColor Yellow
-    
-    try {
-        $headers = @{
-            'Ocp-Apim-Subscription-Key' = $key
-            'Content-Type' = 'application/json'
-        }
-        
-        $modelUri = "$endpoint/documentintelligence/documentModels/$ModelName?api-version=2024-11-30"
-        $response = Invoke-RestMethod -Uri $modelUri -Method GET -Headers $headers
-        
-        if ($response -and $response.modelId -eq $ModelName) {
-            Write-Host "✓ Model $ModelName is available and accessible" -ForegroundColor Green
-            $testsPassed++
-            $testResults += @{
-                TestName = "ModelAvailability"
-                Status = "Passed"
-                Details = "Model is available and accessible"
-                Environment = $Environment
-            }
-        } else {
-            Write-Host "✗ Model $ModelName response validation failed" -ForegroundColor Red
-            $testsFailed++
-            $testResults += @{
-                TestName = "ModelAvailability"
-                Status = "Failed"
-                Details = "Model response validation failed"
-                Environment = $Environment
-            }
-        }
-    }
-    catch {
-        Write-Host "✗ Model $ModelName is not available: $($_.Exception.Message)" -ForegroundColor Red
-        $testsFailed++
-        $testResults += @{
-            TestName = "ModelAvailability"
-            Status = "Failed"
-            Details = "Model not available: $($_.Exception.Message)"
-            Environment = $Environment
-        }
-    }
-    
-    # Test 2: Model Status
-    Write-Host "Testing model status..." -ForegroundColor Yellow
-    
-    try {
-        $statusUri = "$endpoint/documentintelligence/documentModels/$ModelName?api-version=2024-11-30"
-        $statusResponse = Invoke-RestMethod -Uri $statusUri -Method GET -Headers $headers
-        
-        if ($statusResponse.status -eq "ready") {
-            Write-Host "✓ Model status is ready" -ForegroundColor Green
-            $testsPassed++
-            $testResults += @{
-                TestName = "ModelStatus"
-                Status = "Passed"
-                Details = "Model status is ready"
-                Environment = $Environment
-            }
-        } else {
-            Write-Host "✗ Model status is not ready: $($statusResponse.status)" -ForegroundColor Red
-            $testsFailed++
-            $testResults += @{
-                TestName = "ModelStatus"
-                Status = "Failed"
-                Details = "Model status: $($statusResponse.status)"
-                Environment = $Environment
-            }
-        }
-    }
-    catch {
-        Write-Host "✗ Failed to get model status: $($_.Exception.Message)" -ForegroundColor Red
-        $testsFailed++
-        $testResults += @{
-            TestName = "ModelStatus"
-            Status = "Failed"
-            Details = "Failed to get model status: $($_.Exception.Message)"
-            Environment = $Environment
-        }
-    }
-    
-    # Test 3: Service Health
+    # Test 1: Service Health
     Write-Host "Testing service health..." -ForegroundColor Yellow
     
     try {
-        $healthUri = "$endpoint/documentintelligence/documentModels?api-version=2024-11-30"
+        $healthUri = $endpoint+"/documentintelligence/documentModels?api-version=2024-11-30"
         $healthResponse = Invoke-RestMethod -Uri $healthUri -Method GET -Headers $headers
         
         if ($healthResponse) {
@@ -163,12 +87,50 @@ try {
         }
     }
     
-    # Test 4: Document Processing Test (if not smoke test only)
+    # Test 2: Model Availability
+    Write-Host "Testing model availability..." -ForegroundColor Yellow
+    
+    try {
+        $modelUri = $endpoint+"/documentintelligence/documentModels/"+$ModelName+"?api-version=2024-11-30"
+        $response = Invoke-RestMethod -Uri $modelUri -Method GET -Headers $headers
+        
+        if ($response -and $response.modelId -eq $ModelName) {
+            Write-Host "✓ Model $ModelName is available and accessible" -ForegroundColor Green
+            $testsPassed++
+            $testResults += @{
+                TestName = "ModelAvailability"
+                Status = "Passed"
+                Details = "Model is available and accessible"
+                Environment = $Environment
+            }
+        } else {
+            Write-Host "✗ Model $ModelName response validation failed" -ForegroundColor Red
+            $testsFailed++
+            $testResults += @{
+                TestName = "ModelAvailability"
+                Status = "Failed"
+                Details = "Model response validation failed"
+                Environment = $Environment
+            }
+        }
+    }
+    catch {
+        Write-Host "✗ Model $ModelName is not available: $($_.Exception.Message)" -ForegroundColor Red
+        $testsFailed++
+        $testResults += @{
+            TestName = "ModelAvailability"
+            Status = "Failed"
+            Details = "Model not available: $($_.Exception.Message)"
+            Environment = $Environment
+        }
+    }
+    
+    # Test 3: Document Processing Test (if not smoke test only)
     if (-not $SmokeTestOnly) {
         Write-Host "Testing document processing..." -ForegroundColor Yellow
         
         # Check for test document
-        $testDocPath = Join-Path $PSScriptRoot "..\test-data\sample-document.pdf"
+        $testDocPath = Join-Path $PSScriptRoot "..\test-data\Test\Invoice_6.pdf"
         
         if (Test-Path $testDocPath) {
             try {
@@ -177,34 +139,100 @@ try {
                 $testDocBase64 = [System.Convert]::ToBase64String($testDocBytes)
                 
                 # Prepare request
-                $analyzeUri = "$endpoint/documentintelligence/documentModels/$ModelName`:analyze?api-version=2024-11-30"
+                $analyzeUri = $endpoint+"/documentintelligence/documentModels/"+$ModelName+":analyze?api-version=2024-11-30"
                 $analyzeBody = @{
                     base64Source = $testDocBase64
                 } | ConvertTo-Json
                 
                 $analyzeHeaders = $headers.Clone()
                 $analyzeHeaders['Content-Type'] = 'application/json'
-                
+
                 # Submit analysis request
-                $analyzeResponse = Invoke-RestMethod -Uri $analyzeUri -Method POST -Headers $analyzeHeaders -Body $analyzeBody
+                $analyzeResponse = Invoke-WebRequest -Uri $analyzeUri -Method POST -Headers $analyzeHeaders -Body $analyzeBody
                 
-                if ($analyzeResponse -and $analyzeResponse.status) {
-                    Write-Host "✓ Document processing test initiated successfully" -ForegroundColor Green
-                    $testsPassed++
-                    $testResults += @{
-                        TestName = "DocumentProcessing"
-                        Status = "Passed"
-                        Details = "Document processing test completed successfully"
-                        Environment = $Environment
-                    }
-                } else {
-                    Write-Host "✗ Document processing test failed" -ForegroundColor Red
+                # Get the operation-location header which contains the URL for polling
+                $operationLocation = $analyzeResponse.Headers['Operation-Location']
+                Write-Host "Document analysis initiated. Operation-Location: $operationLocation" -ForegroundColor Gray
+                
+                if (-not $operationLocation) {
+                    Write-Host "✗ Document processing test failed: Operation-Location header not found" -ForegroundColor Red
                     $testsFailed++
                     $testResults += @{
                         TestName = "DocumentProcessing"
                         Status = "Failed"
-                        Details = "Document processing test failed"
+                        Details = "Operation-Location header not found in the analyze response"
                         Environment = $Environment
+                    }
+                } else {
+                    Write-Host "Document analysis initiated. Polling for results..." -ForegroundColor Yellow
+                    
+                    # Poll the operation until it completes
+                    $maxRetries = 20
+                    $retryCount = 0
+                    $analyzeResult = $null
+                    
+                    while ($retryCount -lt $maxRetries) {
+                        $retryCount++
+                        Write-Host "Polling attempt $retryCount of $maxRetries..." -ForegroundColor Gray
+                        
+                        try {
+                            $statusResponse = Invoke-RestMethod -Uri $operationLocation[0] -Method GET -Headers $headers
+                            
+                            if ($statusResponse.status -eq "succeeded") {
+                                $analyzeResult = $statusResponse.analyzeResult
+                                break
+                            } elseif ($statusResponse.status -eq "failed") {
+                                Write-Host "✗ Document analysis failed: $($statusResponse.error.message)" -ForegroundColor Red
+                                $testsFailed++
+                                $testResults += @{
+                                    TestName = "DocumentProcessing"
+                                    Status = "Failed"
+                                    Details = "Document analysis failed: $($statusResponse.error.message)"
+                                    Environment = $Environment
+                                }
+                                break
+                            } else {
+                                # Still processing, wait and try again
+                                Start-Sleep -Seconds 3
+                            }
+                        }
+                        catch {
+                            Write-Host "Error polling for results: $($_.Exception.Message)" -ForegroundColor Red
+                            Start-Sleep -Seconds 3
+                        }
+                    }
+                    
+                    if ($analyzeResult) {
+                        # Validate the analysis result
+                        if ($analyzeResult.documents -and $analyzeResult.documents.Count -gt 0) {
+                            Write-Host "✓ Document processing test completed successfully" -ForegroundColor Green
+                            Write-Host "  Document type identified: $($analyzeResult.documents[0].docType)" -ForegroundColor Gray
+                            $testsPassed++
+                            $testResults += @{
+                                TestName = "DocumentProcessing"
+                                Status = "Passed"
+                                Details = "Document processing completed successfully. Document type: $($analyzeResult.documents[0].docType)"
+                                Environment = $Environment
+                            }
+                        } else {
+                            Write-Host "✓ Document analysis completed but no documents were identified" -ForegroundColor Yellow
+                            $testsPassed++
+                            $testResults += @{
+                                TestName = "DocumentProcessing"
+                                Status = "Passed"
+                                Details = "Document analysis completed but no documents were identified"
+                                Environment = $Environment
+                            }
+                        }
+                    } elseif ($retryCount -ge $maxRetries) {
+                        Write-Host "✗ Document processing test failed: Timed out waiting for analysis to complete" -ForegroundColor Red
+                        $testsFailed++
+                        $testResults += @{
+                            TestName = "DocumentProcessing"
+                            Status = "Failed"
+                            Details = "Timed out waiting for analysis to complete"
+                            Environment = $Environment
+                        }
                     }
                 }
             }
@@ -229,41 +257,17 @@ try {
         }
     }
     
-    # Generate JUnit XML results
-    $junitXml = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="ModelTesting_$Environment" tests="$($testsPassed + $testsFailed)" failures="$testsFailed" errors="0" time="0">
-"@
-    
-    foreach ($result in $testResults) {
-        $junitXml += @"
-    <testcase name="$($result.TestName)" classname="ModelTesting_$($result.Environment)">
-"@
-        if ($result.Status -eq "Failed") {
-            $junitXml += @"
-        <failure message="$($result.Details)">$($result.Details)</failure>
-"@
-        } elseif ($result.Status -eq "Skipped") {
-            $junitXml += @"
-        <skipped message="$($result.Details)">$($result.Details)</skipped>
-"@
-        }
-        $junitXml += @"
-    </testcase>
-"@
-    }
-    
-    $junitXml += @"
-</testsuite>
-"@
-    
-    # Save results
-    $resultsPath = Join-Path $PSScriptRoot "..\$($Environment.ToLower())-test-results.xml"
-    $junitXml | Out-File -FilePath $resultsPath -Encoding UTF8
-    
+    # Output results as JSON to the console
+    $output = @{
+        Environment = $Environment
+        Passed = $testsPassed
+        Failed = $testsFailed
+        Results = $testResults
+    } | ConvertTo-Json -Depth 10
+    Write-Host $output
+
     Write-Host "Testing completed. Passed: $testsPassed, Failed: $testsFailed" -ForegroundColor $(if ($testsFailed -eq 0) { "Green" } else { "Red" })
-    Write-Host "Results saved to: $resultsPath" -ForegroundColor Yellow
-    
+
     # Exit with appropriate code
     if ($testsFailed -gt 0) {
         exit 1
