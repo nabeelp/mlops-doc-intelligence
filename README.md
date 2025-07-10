@@ -55,10 +55,7 @@ branches          (QA Environment)     (Production Environment)
    ```
 
 2. **Configure Azure Infrastructure**
-   - Deploy infrastructure using Bicep templates: `.\infra\deploy.ps1`
-   - Create variable groups (see [Variable Groups Configuration](docs/variable-groups.md))
-   - Set up service connections
-   - Create environments (QA, Production)
+   - Follow the steps in the [Infrastructure Deployment Guide](docs/deployment-guide.md)
 
 3. **Prepare your model**
    - Place model configuration in `models/<model-name>/config.json`
